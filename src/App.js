@@ -1,22 +1,36 @@
 /* global Plotly:true */
-import React, { useEffect, useReducer, useCallback } from 'react';
+import React, { useEffect, useReducer, useCallback, useRef } from 'react';
 import createPlotlyComponent from 'react-plotly.js/factory';
 const Plot = createPlotlyComponent(Plotly);
 
 const useWebsocket = (url, onGetData, onConnectionChange) => {
-  useEffect(() => {
-    const websocket = new WebSocket(url);
-    websocket.onopen = () => {
+  const websocket = useRef(null);
+
+  const connect = () => {
+    if (websocket.current) return;
+
+    websocket.current = new WebSocket(url);
+    websocket.current.onopen = () => {
       onConnectionChange(true);
     };
-
-    websocket.onmessage = (event) => {
+    websocket.current.onclose = (event) => {
+      onConnectionChange(false);
+      websocket.current = null;
+      setTimeout(() => {
+        connect();
+      }, 1000);
+    };
+    websocket.current.onmessage = (event) => {
       const d = JSON.parse(event.data);
       onGetData(d);
     };
+  };
+
+  useEffect(() => {
+    connect();
 
     return () => {
-      websocket.close();
+      websocket.current && websocket.current.close();
     };
   }, [url, onGetData, onConnectionChange]);
 };
