@@ -1,9 +1,6 @@
 /* global Plotly:true */
-import React, { useState, useEffect, useReducer } from 'react';
+import React, { useEffect, useReducer, useCallback } from 'react';
 import createPlotlyComponent from 'react-plotly.js/factory';
-
-// import './App.css';
-
 const Plot = createPlotlyComponent(Plotly);
 
 const useWebsocket = (url, onGetData, onConnectionChange) => {
@@ -23,21 +20,24 @@ const useWebsocket = (url, onGetData, onConnectionChange) => {
       websocket.close();
       onConnectionChange(false);
     };
-  }, []);
+  }, [url, onGetData, onConnectionChange]);
 };
 
 function reducer(state, action) {
   // console.log('state:', state);
-  const { x, y, x2, y2, wsConnected } = state;
+  const { x, y, x2, y2 } = state;
   if (action.type === 'update') {
     // console.log('update');
-    const newX = [...x, action.data[0].timestamp];
-    const newY = [...y, action.data[0].temperature];
-
-    const newX2 = [...x2, action.data[1].timestamp];
-    const newY2 = [...y2, action.data[1].temperature];
-    // console.log('newX2:', newY2);
-    return { x: newX, y: newY, x2: newX2, y2: newY2, wsConnected };
+    const newState = { ...state };
+    if (action.data[0].temperature <= 100) {
+      newState.x = [...x, action.data[0].timestamp];
+      newState.y = [...y, action.data[0].temperature];
+    }
+    if (action.data[1].temperature <= 100) {
+      newState.x2 = [...x2, action.data[1].timestamp];
+      newState.y2 = [...y2, action.data[1].temperature];
+    }
+    return newState;
   } else if (action.type === 'connection-change') {
     return { ...state, wsConnected: action.data };
   } else {
@@ -54,13 +54,13 @@ function App() {
     wsConnected: false,
   });
 
-  const onGetData = (data) => {
+  const onGetData = useCallback((data) => {
     dispatch({ type: 'update', data });
-  };
+  }, []);
 
-  const onConnectionChange = (status) => {
+  const onConnectionChange = useCallback((status) => {
     dispatch({ type: 'connection-change', data: status });
-  };
+  }, []);
 
   useWebsocket('ws://localhost:8999', onGetData, onConnectionChange);
 
