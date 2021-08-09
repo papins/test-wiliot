@@ -89,7 +89,7 @@ function App() {
             name: 'ID 2',
           },
         ]}
-        layout={{ width: 1400, height: 500, title: 'DATA' }}
+        layout={{ width: 1400, height: 500, title: 'DATA', xaxis: { type: 'date' } }}
       />
     </>
   );
