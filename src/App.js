@@ -8,7 +8,6 @@ const useWebsocket = (url, onGetData, onConnectionChange) => {
     const websocket = new WebSocket(url);
     websocket.onopen = () => {
       onConnectionChange(true);
-      // console.log('connected');
     };
 
     websocket.onmessage = (event) => {
@@ -18,25 +17,20 @@ const useWebsocket = (url, onGetData, onConnectionChange) => {
 
     return () => {
       websocket.close();
-      onConnectionChange(false);
     };
   }, [url, onGetData, onConnectionChange]);
 };
 
 function reducer(state, action) {
-  // console.log('state:', state);
-  const { x, y, x2, y2 } = state;
   if (action.type === 'update') {
-    // console.log('update');
     const newState = { ...state };
-    if (action.data[0].temperature <= 100) {
-      newState.x = [...x, action.data[0].timestamp];
-      newState.y = [...y, action.data[0].temperature];
-    }
-    if (action.data[1].temperature <= 100) {
-      newState.x2 = [...x2, action.data[1].timestamp];
-      newState.y2 = [...y2, action.data[1].temperature];
-    }
+
+    const timestampNow = Date.now();
+    // save data only for the last 5 minutes
+    newState.data = state.data.filter((d) => d[0].timestamp >= timestampNow - 1000 * 60 * 5);
+
+    newState.data.push(action.data);
+
     return newState;
   } else if (action.type === 'connection-change') {
     return { ...state, wsConnected: action.data };
@@ -46,11 +40,8 @@ function reducer(state, action) {
 }
 
 function App() {
-  const [data, dispatch] = useReducer(reducer, {
-    x: [],
-    y: [],
-    x2: [],
-    y2: [],
+  const [state, dispatch] = useReducer(reducer, {
+    data: [],
     wsConnected: false,
   });
 
@@ -64,31 +55,34 @@ function App() {
 
   useWebsocket('ws://localhost:8999', onGetData, onConnectionChange);
 
+  const { data, wsConnected } = state;
+  const plotData = ['black', 'lightgrey'].map((color, index) => {
+    const x = [];
+    const y = [];
+    data.forEach((d) => {
+      if (d[index].temperature <= 100) {
+        x.push(d[index].timestamp);
+        y.push(d[index].temperature);
+      }
+    });
+    return {
+      x,
+      y,
+      type: 'scatter',
+      mode: 'lines',
+      marker: { color },
+      name: `ID ${index + 1}`,
+    };
+  });
+
   return (
     <>
       <b>WILIOT Test</b>
-      <pre>ID 1: Temp: {data.y[data.y.length - 1]} C</pre>
-      <pre>ID 2: Temp: {data.y2[data.y2.length - 1]} C</pre>
-      <pre>WS status: {data.wsConnected ? 'Connected' : 'Disconnected'}</pre>
+      <pre>WS status: {wsConnected ? 'Connected' : 'Disconnected'}</pre>
+      {!!data.length && <pre>ID 1: Temp: {data[data.length - 1][0].temperature} C</pre>}
+      {!!data.length && <pre>ID 2: Temp: {data[data.length - 1][1].temperature} C</pre>}
       <Plot
-        data={[
-          {
-            x: data.x,
-            y: data.y,
-            type: 'scatter',
-            mode: 'lines',
-            marker: { color: 'black' },
-            name: 'ID 1',
-          },
-          {
-            x: data.x2,
-            y: data.y2,
-            type: 'scatter',
-            mode: 'lines',
-            marker: { color: 'lightgrey' },
-            name: 'ID 2',
-          },
-        ]}
+        data={plotData}
         layout={{ width: 1400, height: 500, title: 'DATA', xaxis: { type: 'date' } }}
       />
     </>
