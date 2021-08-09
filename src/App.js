@@ -1,281 +1,124 @@
-import React from 'react'
-import styled from 'styled-components'
-import { useTable, usePagination } from 'react-table'
+/* global Plotly:true */
 
-import makeData from './makeData'
+import React, { useState, useEffect, useReducer } from 'react';
 
-const Styles = styled.div`
-  padding: 1rem;
+// import Plot from 'react-plotly.js';
+import createPlotlyComponent from 'react-plotly.js/factory';
 
-  table {
-    border-spacing: 0;
-    border: 1px solid black;
+// import './App.css';
 
-    tr {
-      :last-child {
-        td {
-          border-bottom: 0;
-        }
-      }
-    }
+const Plot = createPlotlyComponent(Plotly);
 
-    th,
-    td {
-      margin: 0;
-      padding: 0.5rem;
-      border-bottom: 1px solid black;
-      border-right: 1px solid black;
+// import plotComponentFactory from 'react-plotly.js/factory';
+// import Plotly from 'plotly.js-dist';
+// const Plot = plotComponentFactory(Plotly);
 
-      :last-child {
-        border-right: 0;
-      }
+// import styled from 'styled-components'
+// import { useTable, usePagination } from 'react-table'
 
-      input {
-        font-size: 1rem;
-        padding: 0;
-        margin: 0;
-        border: 0;
-      }
-    }
+// import makeData from './makeData'
+
+// const useReactQuerySubscription = (data, setData) => {
+//   useEffect(() => {
+//     // const websocket = new WebSocket('wss://echo.websocket.org/')
+//     const websocket = new WebSocket('ws://localhost:8999');
+//     websocket.onopen = () => {
+//       console.log('connected');
+//     };
+//
+//     websocket.onmessage = (event) => {
+//       const d = JSON.parse(event.data);
+//       console.log('d:', d[0].timestamp, d[0].temperature);
+//       const newData = {x: [...data.x], y: [...data.y]};
+//       newData.x.push(d[0].timestamp);
+//       newData.y.push(d[0].temperature);
+//       console.log('newData:', newData);
+//       setData(newData);
+//       // const queryKey = [...data.entity, data.id].filter(Boolean)
+//       // queryClient.invalidateQueries(queryKey)
+//     };
+//
+//     return () => {
+//       websocket.close();
+//     };
+//   }, []);
+// };
+function reducer(state, action) {
+  // console.log('state:', state);
+  const { x, y, x2, y2 } = state;
+  if (action.type === 'update') {
+    // console.log('update');
+    const newX = [...x];
+    newX.push(action.data[0].timestamp);
+    const newY = [...y];
+    newY.push(action.data[0].temperature);
+
+    const newX2 = [...x2];
+    newX2.push(action.data[1].timestamp);
+    const newY2 = [...y2];
+    newY2.push(action.data[1].temperature);
+    // console.log('newX2:', newY2);
+    return { x: newX, y: newY, x2: newX2, y2: newY2 };
+  } else {
+    throw new Error();
   }
-
-  .pagination {
-    padding: 0.5rem;
-  }
-`
-
-// Create an editable cell renderer
-const EditableCell = ({
-  value: initialValue,
-  row: { index },
-  column: { id },
-  updateMyData, // This is a custom function that we supplied to our table instance
-}) => {
-  // We need to keep and update the state of the cell normally
-  const [value, setValue] = React.useState(initialValue)
-
-  const onChange = e => {
-    setValue(e.target.value)
-  }
-
-  // We'll only update the external data when the input is blurred
-  const onBlur = () => {
-    updateMyData(index, id, value)
-  }
-
-  // If the initialValue is changed external, sync it up with our state
-  React.useEffect(() => {
-    setValue(initialValue)
-  }, [initialValue])
-
-  return <input value={value} onChange={onChange} onBlur={onBlur} />
-}
-
-// Set our editable cell renderer as the default Cell renderer
-const defaultColumn = {
-  Cell: EditableCell,
-}
-
-// Be sure to pass our updateMyData and the skipPageReset option
-function Table({ columns, data, updateMyData, skipPageReset }) {
-  // For this example, we're using pagination to illustrate how to stop
-  // the current page from resetting when our data changes
-  // Otherwise, nothing is different here.
-  const {
-    getTableProps,
-    getTableBodyProps,
-    headerGroups,
-    prepareRow,
-    page,
-    canPreviousPage,
-    canNextPage,
-    pageOptions,
-    pageCount,
-    gotoPage,
-    nextPage,
-    previousPage,
-    setPageSize,
-    state: { pageIndex, pageSize },
-  } = useTable(
-    {
-      columns,
-      data,
-      defaultColumn,
-      // use the skipPageReset option to disable page resetting temporarily
-      autoResetPage: !skipPageReset,
-      // updateMyData isn't part of the API, but
-      // anything we put into these options will
-      // automatically be available on the instance.
-      // That way we can call this function from our
-      // cell renderer!
-      updateMyData,
-    },
-    usePagination
-  )
-
-  // Render the UI for your table
-  return (
-    <>
-      <table {...getTableProps()}>
-        <thead>
-          {headerGroups.map(headerGroup => (
-            <tr {...headerGroup.getHeaderGroupProps()}>
-              {headerGroup.headers.map(column => (
-                <th {...column.getHeaderProps()}>{column.render('Header')}</th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody {...getTableBodyProps()}>
-          {page.map((row, i) => {
-            prepareRow(row)
-            return (
-              <tr {...row.getRowProps()}>
-                {row.cells.map(cell => {
-                  return <td {...cell.getCellProps()}>{cell.render('Cell')}</td>
-                })}
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-      <div className="pagination">
-        <button onClick={() => gotoPage(0)} disabled={!canPreviousPage}>
-          {'<<'}
-        </button>{' '}
-        <button onClick={() => previousPage()} disabled={!canPreviousPage}>
-          {'<'}
-        </button>{' '}
-        <button onClick={() => nextPage()} disabled={!canNextPage}>
-          {'>'}
-        </button>{' '}
-        <button onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage}>
-          {'>>'}
-        </button>{' '}
-        <span>
-          Page{' '}
-          <strong>
-            {pageIndex + 1} of {pageOptions.length}
-          </strong>{' '}
-        </span>
-        <span>
-          | Go to page:{' '}
-          <input
-            type="number"
-            defaultValue={pageIndex + 1}
-            onChange={e => {
-              const page = e.target.value ? Number(e.target.value) - 1 : 0
-              gotoPage(page)
-            }}
-            style={{ width: '100px' }}
-          />
-        </span>{' '}
-        <select
-          value={pageSize}
-          onChange={e => {
-            setPageSize(Number(e.target.value))
-          }}
-        >
-          {[10, 20, 30, 40, 50].map(pageSize => (
-            <option key={pageSize} value={pageSize}>
-              Show {pageSize}
-            </option>
-          ))}
-        </select>
-      </div>
-    </>
-  )
 }
 
 function App() {
-  const columns = React.useMemo(
-    () => [
-      {
-        Header: 'Name',
-        columns: [
-          {
-            Header: 'First Name',
-            accessor: 'firstName',
-          },
-          {
-            Header: 'Last Name',
-            accessor: 'lastName',
-          },
-        ],
-      },
-      {
-        Header: 'Info',
-        columns: [
-          {
-            Header: 'Age',
-            accessor: 'age',
-          },
-          {
-            Header: 'Visits',
-            accessor: 'visits',
-          },
-          {
-            Header: 'Status',
-            accessor: 'status',
-          },
-          {
-            Header: 'Profile Progress',
-            accessor: 'progress',
-          },
-        ],
-      },
-    ],
-    []
-  )
+  // const [cnt, dispatch] = useReducer(reducer, 0);
+  const [data, dispatch] = useReducer(reducer, { x: [], y: [], x2: [], y2: [] });
 
-  const [data, setData] = React.useState(() => makeData(20))
-  const [originalData] = React.useState(data)
-  const [skipPageReset, setSkipPageReset] = React.useState(false)
+  useEffect(() => {
+    // const websocket = new WebSocket('wss://echo.websocket.org/')
+    const websocket = new WebSocket('ws://localhost:8999');
+    websocket.onopen = () => {
+      // console.log('connected');
+    };
 
-  // We need to keep the table from resetting the pageIndex when we
-  // Update data. So we can keep track of that flag with a ref.
+    websocket.onmessage = (event) => {
+      const d = JSON.parse(event.data);
+      if (d[0].timestamp != d[1].timestamp) {
+        console.log('d:', d[0].timestamp, d[0].temperature, d[1].timestamp, d[1].temperature);
+      }
+      dispatch({ type: 'update', data: d });
+    };
 
-  // When our cell renderer calls updateMyData, we'll use
-  // the rowIndex, columnId and new value to update the
-  // original data
-  const updateMyData = (rowIndex, columnId, value) => {
-    // We also turn on the flag to not reset the page
-    setSkipPageReset(true)
-    setData(old =>
-      old.map((row, index) => {
-        if (index === rowIndex) {
-          return {
-            ...old[rowIndex],
-            [columnId]: value,
-          }
-        }
-        return row
-      })
-    )
-  }
+    return () => {
+      websocket.close();
+    };
+  }, []);
 
-  // After data chagnes, we turn the flag back off
-  // so that if data actually changes when we're not
-  // editing it, the page is reset
-  React.useEffect(() => {
-    setSkipPageReset(false)
-  }, [data])
+  // useReactQuerySubscription(data, setData);
 
-  // Let's add a data resetter/randomizer to help
-  // illustrate that flow...
-  const resetData = () => setData(originalData)
 
   return (
-    <Styles>
-      <button onClick={resetData}>Reset Data</button>
-      <Table
-        columns={columns}
-        data={data}
-        updateMyData={updateMyData}
-        skipPageReset={skipPageReset}
+    <><b>WILIOT Test</b>
+      <pre>ID 1: Temp: {data.y[data.y.length - 1]} C</pre>
+      <pre>ID 2: Temp: {data.y2[data.y2.length - 1]} C</pre>
+      <Plot
+        data={[
+          {
+            x: data.x,
+            y: data.y,
+            type: 'scatter',
+            mode: 'lines',
+            marker: { color: 'black' },
+            name: '1',
+          },
+          {
+            x: data.x2,
+            y: data.y2,
+            type: 'scatter',
+            mode: 'lines',
+            marker: { color: 'lightgrey' },
+            name: '2',
+          },
+          // { type: 'bar', x: [1, 2, 3], y: [2, 5, 3] },
+        ]}
+        layout={{ width: 1200, height: 500, title: '' }}
       />
-    </Styles>
-  )
+    </>
+  );
 }
 
-export default App
+export default App;
